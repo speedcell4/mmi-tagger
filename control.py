@@ -1,11 +1,10 @@
-import data
 import math
-import random
 import time
+from datetime import timedelta
+
 import torch
 import torch.nn as nn
 
-from datetime import timedelta
 from evaluate import compute_many2one_acc, compute_v_measure
 
 
@@ -22,11 +21,11 @@ class Control(nn.Module):
     def train(self, data, lr, epochs):
         self.log_data(data)
         self.logger.log('[TRAINING]')
-        self.logger.log('   num_labels:    %d' % self.model.num_labels)
-        self.logger.log('   dim:           %d' % self.model.wemb.embedding_dim)
-        self.logger.log('   batch_size:    %d' % self.batch_size)
-        self.logger.log('   lr:            %g' % lr)
-        self.logger.log('   epochs:        %d' % epochs)
+        self.logger.log(f'   num_labels:    {self.model.num_labels:d}')
+        self.logger.log(f'   dim:           {self.model.wemb.embedding_dim:d}')
+        self.logger.log(f'   batch_size:    {self.batch_size:d}')
+        self.logger.log(f'   lr:            {lr:g}')
+        self.logger.log(f'   epochs:        {epochs:d}')
         self.logger.log('')
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
@@ -39,8 +38,8 @@ class Control(nn.Module):
                 bits = (- avg_loss) * math.log2(math.e)
                 self.logger.log('| epoch {:3d} | loss {:6.2f} | {:6.2f} bits | '
                                 'acc {:6.2f} | vm {:6.2f} | time {:10s}'.format(
-                                    epoch, avg_loss, bits, acc, vm,
-                                    str(timedelta(seconds=int(epoch_time)))))
+                    epoch, avg_loss, bits, acc, vm,
+                    str(timedelta(seconds=int(epoch_time)))))
                 if best_acc < acc:
                     best_acc = acc
                     with open(self.model_path, 'wb') as f:
@@ -50,13 +49,12 @@ class Control(nn.Module):
             self.logger.log('-' * 89)
             self.logger.log('Exiting from training early')
 
-        self.logger.log('\nTraining time {:10s}'.format(
-            str(timedelta(seconds=int(time.time() - start_time)))))
+        self.logger.log(f'\nTraining time {str(timedelta(seconds=int(time.time() - start_time))):10s}')
 
         self.load_model()
         acc, vm, zseqs, clustering = self.evaluate(data)
         self.logger.log('=' * 89)
-        self.logger.log('| Best | acc {:5.2f} | vm {:5.2f}'.format(acc, vm))
+        self.logger.log(f'| Best | acc {acc:5.2f} | vm {vm:5.2f}')
         self.logger.log('=' * 89)
 
         return acc, vm, zseqs, clustering
@@ -108,10 +106,10 @@ class Control(nn.Module):
     def log_data(self, data):
         self.logger.log('-' * 89)
         self.logger.log('[DATA]')
-        self.logger.log('   data:          %s' % data.data_path)
-        self.logger.log('   # word types:  %d' % len(data.w2i))
-        self.logger.log('   # char types:  %d' % len(data.c2i))
+        self.logger.log(f'   data:          {data.data_path}')
+        self.logger.log(f'   # word types:  {len(data.w2i):d}')
+        self.logger.log(f'   # char types:  {len(data.c2i):d}')
         self.logger.log('   # words:       %d' % sum(len(sent) for sent in
                                                      data.sents))
-        self.logger.log('   # tag types:   %d' % len(data.label_counter))
+        self.logger.log(f'   # tag types:   {len(data.label_counter):d}')
         self.logger.log('-' * 89)

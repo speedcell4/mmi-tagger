@@ -13,7 +13,7 @@ class Data(object):
         self.PAD = '<pad>'
         self.UNK = '<unk>'
 
-        self.sents = []   # Index sequences
+        self.sents = []  # Index sequences
         self.golds = []
         self.w2i = {self.PAD: 0, self.UNK: 1}
         self.i2w = [self.PAD, self.UNK]
@@ -28,6 +28,7 @@ class Data(object):
     def get_data(self):
         wcount = Counter()
         ccount = Counter()
+
         def add(w):
             wcount[w] += 1
             if w not in self.w2i:

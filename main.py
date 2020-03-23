@@ -1,8 +1,8 @@
 import argparse
-import codecs
-import random
 import os
+import random
 import sys
+
 import torch
 
 from control import Control
@@ -20,7 +20,7 @@ def main(args):
                      args.dim // 2, args.width, 1).to(device)
     logger = Logger(args.model + '.log', args.train)
     logger.log('python ' + ' '.join(sys.argv) + '\n')
-    logger.log('Random seed: %d' % args.seed)
+    logger.log(f'Random seed: {args.seed:d}')
     control = Control(model, args.model, args.batch_size, device, logger)
 
     if args.train:
@@ -29,8 +29,8 @@ def main(args):
     elif os.path.exists(args.model):
         control.load_model()
         acc, vm, zseqs, clustering = control.evaluate(data)
-        print('     acc: {:5.2f}'.format(acc))
-        print('      vm: {:5.2f}'.format(vm))
+        print(f'     acc: {acc:5.2f}')
+        print(f'      vm: {vm:5.2f}')
 
     if args.pred:
         with open(args.pred, 'w') as f:

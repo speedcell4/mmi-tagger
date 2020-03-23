@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.nn.utils.rnn import pack_padded_sequence
-from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class MMIModel(nn.Module):
@@ -97,7 +96,7 @@ class FutureEncoder(nn.Module):
         output, (final_h, final_c) = self.lstm(packed)
 
         final_h = final_h.view(self.lstm.num_layers, 2, B,
-                               self.lstm.hidden_size)[-1]         # 2 x B x d_c
+                               self.lstm.hidden_size)[-1]  # 2 x B x d_c
         cembs = final_h.transpose(0, 1).contiguous().view(B, -1)  # B x 2d_c
 
         rep = self.linear(torch.cat([wembs, cembs], 1))  # B x m

@@ -43,14 +43,12 @@ def compute_v_measure(tseqs, zseqs):
     for j in range(len(z2i)):
         for i in range(len(t2i)):
             if B[i, j] > 0.0:
-                H_T_given_Z -= B[i, j] * \
-                               (np.log2(B[i, j]) - np.log2(p_Z[j]))
+                H_T_given_Z -= B[i, j] * (np.log2(B[i, j]) - np.log2(p_Z[j]))
     H_Z_given_T = 0
     for j in range(len(t2i)):
         for i in range(len(z2i)):
             if B[j, i] > 0.0:
-                H_Z_given_T -= B[j, i] * \
-                               (np.log2(B[j, i]) - np.log2(p_T[j]))
+                H_Z_given_T -= B[j, i] * (np.log2(B[j, i]) - np.log2(p_T[j]))
 
     h = 1 if len(t2i) == 1 else 1 - H_T_given_Z / H_T
     c = 1 if len(z2i) == 1 else 1 - H_Z_given_T / H_Z
@@ -72,6 +70,7 @@ def count_cooccurence(tseqs, zseqs):
     for i in range(len(tseqs)):
         assert len(tseqs[i]) == len(zseqs[i])
         for (t, z) in zip(tseqs[i], zseqs[i]):
-            if not z in cooccur: cooccur[z] = Counter()
+            if not z in cooccur:
+                cooccur[z] = Counter()
             cooccur[z][t] += 1
     return cooccur
