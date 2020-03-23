@@ -6,20 +6,27 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 
 class MMIModel(nn.Module):
-
     def __init__(self, num_word_types, num_char_types, num_labels, word_dim,
                  char_dim, width, num_lstm_layers):
         super(MMIModel, self).__init__()
-        self.wemb = nn.Embedding(num_word_types, word_dim, padding_idx=0)
-        self.cemb = nn.Embedding(num_char_types, char_dim, padding_idx=0)
+        self.word_embedding = nn.Embedding(num_word_types, word_dim, padding_idx=0)
+        self.char_embedding = nn.Embedding(num_char_types, char_dim, padding_idx=0)
         self.num_labels = num_labels
         self.width = width
 
         self.loss = Loss()
 
-        self.past = PastEncoder(self.wemb, width, num_labels)
-        self.future = FutureEncoder(self.wemb, self.cemb, num_lstm_layers,
-                                    num_labels)
+        self.past = PastEncoder(
+            word_embedding=self.word_embedding,
+            width=width,
+            num_labels=num_labels,
+        )
+        self.future = FutureEncoder(
+            word_embedding=self.word_embedding,
+            char_embedding=self.char_embedding,
+            num_layers=num_lstm_layers,
+            num_labels=num_labels,
+        )
 
     def forward(self, past_words, future_words, padded_chars, char_lengths,
                 is_training=True):
@@ -27,8 +34,7 @@ class MMIModel(nn.Module):
         future_rep = self.future(future_words, padded_chars, char_lengths)
 
         if is_training:
-            loss = self.loss(past_rep, future_rep)
-            return loss
+            return self.loss(past_rep, future_rep)
 
         else:
             future_probs, future_indices = future_rep.max(1)
@@ -36,7 +42,6 @@ class MMIModel(nn.Module):
 
 
 class Loss(nn.Module):
-
     def __init__(self):
         super(Loss, self).__init__()
         self.entropy = Entropy()
@@ -47,14 +52,10 @@ class Loss(nn.Module):
         hZ = self.entropy(pZ)
 
         x = pZ_Y * F.log_softmax(past_rep, dim=1)  # B x m
-        hZ_X_ub = -1.0 * x.sum(dim=1).mean()
-
-        loss = hZ_X_ub - hZ
-        return loss
+        return -1.0 * x.sum(dim=1).mean() - hZ
 
 
 class Entropy(nn.Module):
-
     def __init__(self):
         super(Entropy, self).__init__()
 
@@ -65,39 +66,40 @@ class Entropy(nn.Module):
 
 
 class PastEncoder(nn.Module):
-
-    def __init__(self, wemb, width, num_labels):
+    def __init__(self, word_embedding, width, num_labels):
         super(PastEncoder, self).__init__()
-        self.wemb = wemb
-        self.linear = nn.Linear(2 * width * wemb.embedding_dim, num_labels)
+        self.word_embedding = word_embedding
+        self.fc = nn.Linear(2 * width * word_embedding.embedding_dim, num_labels)
 
     def forward(self, words):
-        wembs = self.wemb(words)  # B x 2width x d_w
-        rep = self.linear(wembs.view(words.shape[0], -1))  # B x m
-        return rep
+        word = self.word_embedding(words)  # B x 2width x d_w
+        # B x m
+        return self.fc(word.view(words.size(0), -1))
 
 
 class FutureEncoder(nn.Module):
-
-    def __init__(self, wemb, cemb, num_layers, num_labels):
+    def __init__(self, word_embedding, char_embedding, num_layers, num_labels):
         super(FutureEncoder, self).__init__()
-        self.wemb = wemb
-        self.cemb = cemb
-        self.lstm = nn.LSTM(cemb.embedding_dim, cemb.embedding_dim, num_layers,
-                            bidirectional=True)
-        self.linear = nn.Linear(wemb.embedding_dim + 2 * cemb.embedding_dim,
-                                num_labels)
+        self.word_embedding = word_embedding
+        self.char_embedding = char_embedding
+        self.char_rnn = nn.LSTM(
+            char_embedding.embedding_dim, char_embedding.embedding_dim,
+            num_layers, bidirectional=True,
+        )
+        self.fc = nn.Linear(
+            word_embedding.embedding_dim + 2 * char_embedding.embedding_dim,
+            num_labels,
+        )
 
     def forward(self, words, padded_chars, char_lengths):
         B = len(char_lengths)
-        wembs = self.wemb(words)  # B x d_w
+        word = self.word_embedding(words)  # B x d_w
 
-        packed = pack_padded_sequence(self.cemb(padded_chars), char_lengths)
-        output, (final_h, final_c) = self.lstm(packed)
+        pack = pack_padded_sequence(self.char_embedding(padded_chars), char_lengths)
+        _, (ctx, _) = self.char_rnn(pack)
 
-        final_h = final_h.view(self.lstm.num_layers, 2, B,
-                               self.lstm.hidden_size)[-1]  # 2 x B x d_c
-        cembs = final_h.transpose(0, 1).contiguous().view(B, -1)  # B x 2d_c
+        ctx = ctx.view(self.char_rnn.num_layers, 2, B, self.char_rnn.hidden_size)[-1]  # 2 x B x d_c
+        char = ctx.transpose(0, 1).contiguous().view(B, -1)  # B x 2d_c
 
-        rep = self.linear(torch.cat([wembs, cembs], 1))  # B x m
-        return rep
+        # B x m
+        return self.fc(torch.cat([word, char], 1))
